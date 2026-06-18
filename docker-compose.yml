@@ -1,9 +1,8 @@
-version: '3.8'
-
 services:
   
   backend:
     build: ./backend
+    image: naapholey/zuriapp_backend
     container_name: zuriapp_backend
     ports:
       - "5000:5000"
@@ -16,6 +15,7 @@ services:
 
   frontend:
     build: ./frontend
+    image: naapholey/zuriapp_frontend # Add this line
     container_name: zuriapp_frontend
     environment:
       - REACT_APP_BACKEND_URL=http://localhost:5000
