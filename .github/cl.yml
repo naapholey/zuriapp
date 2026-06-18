@@ -26,6 +26,7 @@ jobs:
       with:
         node-version: ${{ matrix.node-version }}
         cache: 'npm'
+        cache-dependency-path: 'backend/package-lock.json' # <-- Change this to your subfolder path
     - run: npm ci
     - run: npm run build -f frontend
     - run: npm test
