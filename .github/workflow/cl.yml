@@ -1,0 +1,50 @@
+name: NODE CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [ '18', '20' ]
+
+    steps:
+      # Step 1: Pull the repo code onto the runner
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Step 2: Install the specified Node.js version
+      - name: Set up Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v3
+        with:
+          node-version: ${{ matrix.node-version }}
+
+      # Step 3: Cache npm packages so future runs are faster
+      - name: Cache npm dependencies
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
+      # Step 4: Install project dependencies
+      - name: Install dependencies
+        run: |
+          npm install
+
+      # Step 5: Lint the code to catch style and syntax issues
+     # - name: Lint with flake8
+       # run: |
+       #   flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+        #  flake8 . --count --max-line-length=120 --statistics
+
+      # Step 6: Run the test suite
+      #- name: Run tests
+      #  run: pytest --verbose 
