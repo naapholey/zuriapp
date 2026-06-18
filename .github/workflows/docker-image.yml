@@ -14,5 +14,13 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Build the Docker image
-      run: docker build . --file Dockerfile --tag my-image-name:$(date +%s)
+    - name: Build the Docker compose
+      run: docker compose up --build -f docker-compose.yml -d
+    - name: Run tests
+      run: |
+        # Add commands to run your tests here, for example:
+        # docker compose exec backend npm test
+        # docker compose exec frontend npm test
+        echo "Tests would run here"
+    #- name: Tear down the Docker compose
+    #  run: docker compose down -f docker-compose.yml 
