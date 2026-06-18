@@ -15,7 +15,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Build the Docker compose
-      run: docker compose up --build -f docker-compose.yml -d
+      run: docker compose up --build
     - name: Run tests
       run: |
         # Add commands to run your tests here, for example:
