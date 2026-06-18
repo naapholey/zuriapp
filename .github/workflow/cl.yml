@@ -1,50 +1,31 @@
-name: NODE CI
+# This workflow will do a clean installation of node dependencies, cache/restore them, build the source code and run tests across different versions of node
+# For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-nodejs
+
+name: Node.js CI
 
 on:
   push:
-    branches: [ main, dev-branch ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
-  test:
+  build:
+
     runs-on: ubuntu-latest
 
     strategy:
       matrix:
-        node-version: [ '18', '20' ]
+        node-version: [18.x, 20.x, 22.x]
+        # See supported Node.js release schedule at https://nodejs.org/en/about/releases/
 
     steps:
-      # Step 1: Pull the repo code onto the runner
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # Step 2: Install the specified Node.js version
-      - name: Set up Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
-        with:
-          node-version: ${{ matrix.node-version }}
-
-      # Step 3: Cache npm packages so future runs are faster
-      - name: Cache npm dependencies
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
-
-      # Step 4: Install project dependencies
-      - name: Install dependencies
-        run: |
-          npm install
-
-      # Step 5: Lint the code to catch style and syntax issues
-     # - name: Lint with flake8
-       # run: |
-       #   flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
-        #  flake8 . --count --max-line-length=120 --statistics
-
-      # Step 6: Run the test suite
-      #- name: Run tests
-      #  run: pytest --verbose 
+    - uses: actions/checkout@v4
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+    - run: npm ci
+    - run: npm run build --if-present
+    - run: npm test
