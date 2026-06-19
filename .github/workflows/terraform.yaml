@@ -14,6 +14,10 @@ permissions:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+     # Define the global path for all run steps in this job
+    defaults:
+      run:
+        working-directory: zuriapp/terraform
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
