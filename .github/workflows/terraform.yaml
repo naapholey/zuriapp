@@ -38,11 +38,11 @@ jobs:
         with:
           terraform_version: 1.12.2
 
+      - name: Terraform Format
+        run: terraform fmt -check
+
       - name: Terraform Init
         run: terraform init -input=false
-
-      - name: Terraform Format
-        run: terraform fmt -check -recursive
 
       - name: Terraform Validate
         run: terraform validate
