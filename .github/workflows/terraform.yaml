@@ -1,7 +1,7 @@
 name: Terraform
 
 on:
-  push:
+  push: 
     branches:
       - main
   pull_request:
@@ -21,9 +21,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        
+
       - name: Configure aws credentials
-        uses: aws-actions/configure-aws-credentials@v1.7.0
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.ARN_TO_ASSUME }}
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
@@ -34,21 +34,21 @@ jobs:
           aws sts get-caller-identity
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v2
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: "1.6.0"
 
       - name: Terraform Init
-        run: terraform init
+        run: terraform init -input=false
 
       - name: Terraform Format
-        run: terraform fmt -check
-        continue-on-error: true  # Don't fail the job on format issues
+        run: terraform fmt -check -recursive
 
       - name: Terraform Validate
         run: terraform validate
 
-      - name: Terraform Plan
+      - name: Terraform Plan -input=false -out=tfplan
+        if: github.event_name == 'push'
         run: terraform plan -out=tfplan
 
       - name: Terraform Apply

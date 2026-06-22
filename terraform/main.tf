@@ -1,10 +1,114 @@
-module "vpc" {
-  source = "./modules/vpc"
+# Configure the AWS provider
+provider "aws" {
+  region = "us-east-1" # Change to your preferred AWS region
+}
 
-  vpc_name             = var.vpc_name
-  vpc_cidr             = var.vpc_cidr
-  public_subnet_cidrs  = var.public_subnet_cidrs
-  private_subnet_cidrs = var.private_subnet_cidrs
-  availability_zone   = var.availability_zone
-  environment          = var.environment
+# Security Group to allow necessary ports
+resource "aws_security_group" "ec2_security_group" {
+  name        = "ec2_security_group"
+  description = "Allow necessary ports for admin, controlplane, and workernode"
+
+  ingress {
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 2379
+    to_port     = 2379
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 10250
+    to_port     = 10250
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+  ingress {
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 10259
+    to_port     = 10259
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    from_port   = 10257
+    to_port     = 10257
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+}
+
+# Define the EC2 instances
+resource "aws_instance" "admin" {
+  ami           = "ami-0dee22c13ea7a9a67" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
+  instance_type = "t2.large"
+  key_name      = "newKey" # Your existing key pair name
+  security_groups = [aws_security_group.ec2_security_group.name]
+
+  tags = {
+    Name = "admin"
+  }
+}
+
+resource "aws_instance" "controlplane" {
+  ami           = "ami-0dee22c13ea7a9a67" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
+  instance_type = "t2.large"
+  key_name      = "newKey" # Your existing key pair name
+  security_groups = [aws_security_group.ec2_security_group.name]
+
+  tags = {
+    Name = "controlplane"
+  }
+}
+
+resource "aws_instance" "workernode" {
+  ami           = "ami-0dee22c13ea7a9a67" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
+  instance_type = "t2.large"
+  key_name      = "newKey" # Your existing key pair name
+  security_groups = [aws_security_group.ec2_security_group.name]
+
+  tags = {
+    Name = "workernode"
+  }
+}
+
+# Output SSH commands for each instance
+output "ssh_instructions" {
+  description = "SSH commands to connect to each instance"
+  value = {
+    admin        = "ssh -i newKey.pem ubuntu@${aws_instance.admin.public_ip}"
+    controlplane = "ssh -i newKey.pem ubuntu@${aws_instance.controlplane.public_ip}"
+    workernode   = "ssh -i newKey.pem ubuntu@${aws_instance.workernode.public_ip}"
+  }
 }
