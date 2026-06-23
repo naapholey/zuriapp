@@ -40,7 +40,7 @@ resource "aws_security_group" "ec2_security_group" {
 # Define the EC2 instances
 resource "aws_instance" "admin" {
   ami             = "ami-0bc7f2dbdcc6b5303" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
-  instance_type   = "t2.micro"
+  instance_type   = "t3.micro"
   key_name        = "lamp_key" # Your existing key pair name
   security_groups = [aws_security_group.ec2_security_group.name]
 
@@ -51,7 +51,7 @@ resource "aws_instance" "admin" {
 
 resource "aws_instance" "controlplane" {
   ami             = "ami-0bc7f2dbdcc6b5303" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
-  instance_type   = "t2.micro"
+  instance_type   = "t3.micro"
   key_name        = "lamp_key" # Your existing key pair name
   security_groups = [aws_security_group.ec2_security_group.name]
 
@@ -62,7 +62,7 @@ resource "aws_instance" "controlplane" {
 
 resource "aws_instance" "workernode" {
   ami             = "ami-0bc7f2dbdcc6b5303" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
-  instance_type   = "t2.micro"
+  instance_type   = "t3.micro"
   key_name        = "lamp_key" # Your existing key pair name
   security_groups = [aws_security_group.ec2_security_group.name]
 
