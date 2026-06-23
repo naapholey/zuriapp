@@ -28,7 +28,7 @@ resource "aws_security_group" "zuriapp_security_group" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-ingress {
+  ingress {
     from_port   = 6443
     to_port     = 6443
     protocol    = "tcp"
@@ -49,7 +49,7 @@ resource "aws_instance" "admin" {
   key_name        = "lamp-key" # Your existing key pair name
   security_groups = [aws_security_group.zuriapp_security_group.name]
 
-# Pass the external bash script into user_data
+  # Pass the external bash script into user_data
   user_data = file("${path.module}/install.sh")
 
   tags = {
