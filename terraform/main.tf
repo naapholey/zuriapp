@@ -4,8 +4,8 @@ provider "aws" {
 }
 
 # Security Group to allow necessary ports
-resource "aws_security_group" "ec2_security_group" {
-  name        = "ec2_security_group"
+resource "aws_security_group" "zuriapp_security_group" {
+  name        = "zuriapp-security-group"
   description = "Allow necessary ports for admin, controlplane, and workernode"
 
 
@@ -28,7 +28,12 @@ resource "aws_security_group" "ec2_security_group" {
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
-
+ingress {
+    from_port   = 6443
+    to_port     = 6443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
   egress {
     from_port   = 0
     to_port     = 0
@@ -42,7 +47,10 @@ resource "aws_instance" "admin" {
   ami             = "ami-0b6d9d3d33ba97d99" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
   instance_type   = "t3.micro"
   key_name        = "lamp-key" # Your existing key pair name
-  security_groups = [aws_security_group.ec2_security_group.name]
+  security_groups = [aws_security_group.zuriapp_security_group.name]
+
+# Pass the external bash script into user_data
+  user_data = file("${path.module}/install.sh")
 
   tags = {
     Name = "admin"
@@ -53,7 +61,7 @@ resource "aws_instance" "controlplane" {
   ami             = "ami-0b6d9d3d33ba97d99" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
   instance_type   = "t3.micro"
   key_name        = "lamp-key" # Your existing key pair name
-  security_groups = [aws_security_group.ec2_security_group.name]
+  security_groups = [aws_security_group.zuriapp_security_group.name]
 
   tags = {
     Name = "controlplane"
@@ -64,7 +72,7 @@ resource "aws_instance" "workernode" {
   ami             = "ami-0b6d9d3d33ba97d99" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
   instance_type   = "t3.micro"
   key_name        = "lamp-key" # Your existing key pair name
-  security_groups = [aws_security_group.ec2_security_group.name]
+  security_groups = [aws_security_group.zuriapp_security_group.name]
 
   tags = {
     Name = "workernode"
