@@ -41,7 +41,7 @@ resource "aws_security_group" "ec2_security_group" {
 resource "aws_instance" "admin" {
   ami             = "ami-0b6d9d3d33ba97d99" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
   instance_type   = "t3.micro"
-  key_name        = "lamp_key" # Your existing key pair name
+  key_name        = "lamp-key" # Your existing key pair name
   security_groups = [aws_security_group.ec2_security_group.name]
 
   tags = {
@@ -52,7 +52,7 @@ resource "aws_instance" "admin" {
 resource "aws_instance" "controlplane" {
   ami             = "ami-0b6d9d3d33ba97d99" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
   instance_type   = "t3.micro"
-  key_name        = "lamp_key" # Your existing key pair name
+  key_name        = "lamp-key" # Your existing key pair name
   security_groups = [aws_security_group.ec2_security_group.name]
 
   tags = {
@@ -63,7 +63,7 @@ resource "aws_instance" "controlplane" {
 resource "aws_instance" "workernode" {
   ami             = "ami-0b6d9d3d33ba97d99" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
   instance_type   = "t3.micro"
-  key_name        = "lamp_key" # Your existing key pair name
+  key_name        = "lamp-key" # Your existing key pair name
   security_groups = [aws_security_group.ec2_security_group.name]
 
   tags = {
@@ -75,8 +75,8 @@ resource "aws_instance" "workernode" {
 output "ssh_instructions" {
   description = "SSH commands to connect to each instance"
   value = {
-    admin        = "ssh -i lamp_key.pem ubuntu@${aws_instance.admin.public_ip}"
-    controlplane = "ssh -i lamp_key.pem ubuntu@${aws_instance.controlplane.public_ip}"
-    workernode   = "ssh -i lamp_key.pem ubuntu@${aws_instance.workernode.public_ip}"
+    admin        = "ssh -i lamp-key.pem ubuntu@${aws_instance.admin.public_ip}"
+    controlplane = "ssh -i lamp-key.pem ubuntu@${aws_instance.controlplane.public_ip}"
+    workernode   = "ssh -i lamp-key.pem ubuntu@${aws_instance.workernode.public_ip}"
   }
 }
