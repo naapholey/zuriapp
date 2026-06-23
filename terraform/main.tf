@@ -8,26 +8,8 @@ resource "aws_security_group" "ec2_security_group" {
   name        = "ec2_security_group"
   description = "Allow necessary ports for admin, controlplane, and workernode"
 
-  ingress {
-    from_port   = 6443
-    to_port     = 6443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
 
-  ingress {
-    from_port   = 2379
-    to_port     = 2379
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 10250
-    to_port     = 10250
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  
   ingress {
     from_port   = 22
     to_port     = 22
@@ -43,20 +25,6 @@ resource "aws_security_group" "ec2_security_group" {
   ingress {
     from_port   = 80
     to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 10259
-    to_port     = 10259
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 10257
-    to_port     = 10257
     protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
   }
