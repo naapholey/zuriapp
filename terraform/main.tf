@@ -9,7 +9,7 @@ resource "aws_security_group" "ec2_security_group" {
   description = "Allow necessary ports for admin, controlplane, and workernode"
 
 
-  
+
   ingress {
     from_port   = 22
     to_port     = 22
