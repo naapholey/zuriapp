@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zuriapp
+  labels:
+    app: zuri-app
+spec:
+  replicas: 3 # Starts with 3 instances for scaling
+  selector:
+    matchLabels:
+      app: zuri-app
+  template:
+    metadata:
+      labels:
+        app: zuri-app
+    spec:
+      containers:
+      - name: zuriapp-container
+        image: naapholey/zuriapp_backend:latest # 
+        ports:
+        - containerPort: 5000 # 
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "250m"
+            memory: "256Mi"
+        livenessProbe: # Enables self-healing if the app freezes
+          httpGet:
+            path: /healthz # Ensure this route exists in your Node app
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 20
+        readinessProbe: # Ensures traffic only goes to ready pods
+          httpGet:
+            path: /healthz
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
