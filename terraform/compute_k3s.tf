@@ -1,32 +1,40 @@
 # Security Firewall Group for Kubernetes Node
+
 resource "aws_security_group" "zuriapp_k3s_sg" {
   name        = "${var.project_name}-k3s-sg"
   description = "Network policies for k3s cluster control plane"
   vpc_id      = aws_vpc.zuriapp_main.id
+}
 
-  # Inbound Public Traffic (HTTP/Nginx)
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+# Rule
+resource "aws_vpc_security_group_ingress_rule" "allow_http" {
+  security_group_id = aws_security_group.zuriapp_k3s_sg.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 80
+  ip_protocol       = "tcp"
+  to_port           = 80
+}
 
-  # Inbound Kubernetes API Endpoint
-  ingress {
-    from_port   = 6443
-    to_port     = 6443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"] # Secure this using your home IP address range if necessary
-  }
+resource "aws_vpc_security_group_ingress_rule" "allow_https" {
+  security_group_id = aws_security_group.zuriapp_k3s_sg.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 443
+  ip_protocol       = "tcp"
+  to_port           = 443
+}
 
-  # Outbound Rule allowing internet discovery
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+resource "aws_vpc_security_group_ingress_rule" "allow_kubernetes_api" {
+  security_group_id = aws_security_group.zuriapp_k3s_sg.id
+  cidr_ipv4         = "0.0.0.0/0"
+  from_port         = 6443
+  ip_protocol       = "tcp"
+  to_port           = 6443
+}
+
+resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv6" {
+  security_group_id = aws_security_group.zuriapp_k3s_sg.id
+  cidr_ipv6         = "::/0"
+  ip_protocol       = "-1" # semantically equivalent to all ports
 }
 
 # IAM instance profile configuration to let k3s read Secrets Manager directly
