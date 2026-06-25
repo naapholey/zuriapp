@@ -1,0 +1,120 @@
+name: Zuriapp CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+
+permissions:
+  id-token: write  # Required for OIDC AWS Auth
+  contents: read   # Required to read repository code
+
+jobs:
+  # -------------------------------------------------------------
+  # STAGE 1: Infrastructure Security Scan & Provisioning
+  # -------------------------------------------------------------
+  infrastructure:
+    name: Terraform & Security
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Scan IaC for Misconfigurations
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          working-directory: terraform
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ARN_TO_ASSUME }}
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Terraform Init & Apply
+        run: |
+          cd terraform
+          terraform init
+          terraform apply -auto-approve
+
+  # -------------------------------------------------------------
+  # STAGE 2: Build, Scan, and Publish Containers (Req 1 & 7)
+  # -------------------------------------------------------------
+  build-and-publish:
+    name: Containerize & Publish
+    needs: infrastructure
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        component: [frontend, backend]
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/zuri-${{ matrix.component }}:${{ github.sha }} ./${{ matrix.component }}
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/zuri-${{ matrix.component }}:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/zuri-${{ matrix.component }}:latest
+
+      - name: Scan Container Image for Vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/zuri-${{ matrix.component }}:${{ github.sha }}
+          format: 'table'
+          exit-code: '1' # Fails the build if CRITICAL vulnerabilities are found
+          ignore-unfixed: true
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Push Image to DockerHub
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/zuri-${{ matrix.component }}:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/zuri-${{ matrix.component }}:latest
+
+  # -------------------------------------------------------------
+  # STAGE 3: Continuous Deployment to Kubernetes Cluster (Req 4)
+  # -------------------------------------------------------------
+  deploy:
+    name: Kubernetes Deployment
+    needs: build-and-publish
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.ARN_TO_ASSUME }}
+          role-session-name: GitHub_to_AWS_via_FederatedOIDC
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      # Assuming your k3s Kubeconfig is securely backed up/accessible via SSM/S3
+      - name: Fetch Kubeconfig from AWS
+        run: |
+          aws s3 cp s3://your-zuri-terraform-bucket/k3s-config ~/.kube/config
+          chmod 600 ~/.kube/config
+
+      - name: Update Kubernetes Manifests with New Image Tag
+        run: |
+          cd k8s
+          sed -i "image: ${{ secrets.DOCKERHUB_USERNAME }}\/zuri-frontend:.*/image: ${{ secrets.DOCKERHUB_USERNAME }}\/zuri-frontend:${{ github.sha }}/g" deployment.yml
+          sed -i "image: ${{ secrets.DOCKERHUB_USERNAME }}\/zuri-backend:.*/image: ${{ secrets.DOCKERHUB_USERNAME }}\/zuri-backend:${{ github.sha }}/g" deployment.yml
+
+      - name: Deploy to k3s
+        run: |
+          kubectl apply -f k8s/
+
+      - name: Verify Rollout Status
+        run: |
+          kubectl rollout status deployment/zuri-frontend-deployment
+          kubectl rollout status deployment/zuri-backend-deployment

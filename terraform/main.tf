@@ -1,90 +1,91 @@
-# Configure the AWS provider
-provider "aws" {
-  region = "us-east-1" # Change to your preferred AWS region
-}
-
-# Security Group to allow necessary ports
-resource "aws_security_group" "zuriapp_security_group" {
-  name        = "zuriapp-security-group"
-  description = "Allow necessary ports for admin, controlplane, and workernode"
-
-
-
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    from_port   = 6443
-    to_port     = 6443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-}
-
-# Define the EC2 instances
-resource "aws_instance" "admin" {
-  ami             = "ami-0b6d9d3d33ba97d99" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
-  instance_type   = "t3.micro"
-  key_name        = "lamp-key" # Your existing key pair name
-  security_groups = [aws_security_group.zuriapp_security_group.name]
-
-  # Pass the external bash script into user_data
-  user_data = file("${path.module}/install.sh")
+# AWS Secrets Manager Container
+resource "aws_secretsmanager_secret" "backend_secrets" {
+  name = "${var.environment}/${var.project_name}/backend"
+  recovery_window_in_days = 0 # Forces immediate purge on deletion for active testing
 
   tags = {
-    Name = "admin"
+    Environment = var.environment
   }
 }
 
-resource "aws_instance" "controlplane" {
-  ami             = "ami-0b6d9d3d33ba97d99" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
-  instance_type   = "t3.micro"
-  key_name        = "lamp-key" # Your existing key pair name
-  security_groups = [aws_security_group.zuriapp_security_group.name]
+# Standard Structure Template for Node.js Application Config
+resource "aws_secretsmanager_secret_version" "backend_defaults" {
+  secret_id     = aws_secretsmanager_secret.backend_secrets.id
+  secret_string = jsonencode({
+    NODE_ENV = "production"
+    PORT     = "5000"
+    DATABASE_URL = "mongodb://placeholder_string"
+    JWT_SECRET   = "713300e5c96007c662ea608ee767d3931dd692f1aa9b85bb7ffc56e208156492"
+  })
+}
+
+
+# Create dedicated project VPC
+resource "aws_vpc" "zuriapp_main" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
 
   tags = {
-    Name = "controlplane"
+    Name        = "${var.project_name}-vpc"
+    Environment = var.environment
   }
 }
 
-resource "aws_instance" "workernode" {
-  ami             = "ami-0b6d9d3d33ba97d99" # Ubuntu Server 20.04 LTS for us-east-1; change if needed
-  instance_type   = "t3.micro"
-  key_name        = "lamp-key" # Your existing key pair name
-  security_groups = [aws_security_group.zuriapp_security_group.name]
+# Internet Gateway for Edge Routing
+resource "aws_internet_gateway" "zuriapp_igw" {
+  vpc_id = aws_vpc.zuriapp_main.id
 
   tags = {
-    Name = "workernode"
+    Name = "${var.project_name}-igw"
   }
 }
 
-# Output SSH commands for each instance
-output "ssh_instructions" {
-  description = "SSH commands to connect to each instance"
-  value = {
-    admin        = "ssh -i lamp-key.pem ubuntu@${aws_instance.admin.public_ip}"
-    controlplane = "ssh -i lamp-key.pem ubuntu@${aws_instance.controlplane.public_ip}"
-    workernode   = "ssh -i lamp-key.pem ubuntu@${aws_instance.workernode.public_ip}"
+# Public Subnet 1
+resource "aws_subnet" "zuriapp_public_1" {
+  vpc_id                  = aws_vpc.zuriapp_main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = "${var.aws_region}a"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${var.project_name}-public-1"
   }
+}
+
+# Public Subnet 2
+resource "aws_subnet" "zuriapp_public_2" {
+  vpc_id                  = aws_vpc.zuriapp_main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = "${var.aws_region}b"
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${var.project_name}-public-2"
+  }
+}
+
+# Public Route Table
+resource "aws_route_table" "zuriapp_public_rt" {
+  vpc_id = aws_vpc.zuriapp_main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.zuriapp_igw.id
+  }
+
+  tags = {
+    Name = "${var.project_name}-public-rt"
+  }
+}
+
+# Route Table Associations
+resource "aws_route_table_association" "zuriapp_pub_1" {
+  subnet_id      = aws_subnet.zuriapp_public_1.id
+  route_table_id = aws_route_table.zuriapp_public_rt.id
+}
+
+resource "aws_route_table_association" "zuriapp_pub_2" {
+  subnet_id      = aws_subnet.zuriapp_public_2.id
+  route_table_id = aws_route_table.zuriapp_public.id
 }

@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zuriappapp-backend
+  labels:
+    app: zuriapp-backend
+spec:
+  replicas: 2 # Scale requirement met
+  selector:
+    matchLabels:
+      app: zuriapp-backend
+  template:
+    metadata:
+      labels:
+        app: zuriapp-backend
+    spec:
+      containers:
+      - name: backend
+        image: DOCKERHUB_USERNAME/zuriapp-backend:latest
+        ports:
+        - containerPort: 5000
+        # Self-healing config: monitors app availability
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 5
+          periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zuriapp-backend-service
+spec:
+  selector:
+    app: zuriapp-backend
+  ports:
+    - protocol: TCP
+      port: 5000
+      targetPort: 5000
