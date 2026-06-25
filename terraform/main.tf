@@ -1,6 +1,6 @@
 # AWS Secrets Manager Container
 resource "aws_secretsmanager_secret" "backend_secrets" {
-  name = "${var.environment}/${var.project_name}/backend"
+  name                    = "${var.environment}/${var.project_name}/backend"
   recovery_window_in_days = 0 # Forces immediate purge on deletion for active testing
 
   tags = {
@@ -10,10 +10,10 @@ resource "aws_secretsmanager_secret" "backend_secrets" {
 
 # Standard Structure Template for Node.js Application Config
 resource "aws_secretsmanager_secret_version" "backend_defaults" {
-  secret_id     = aws_secretsmanager_secret.backend_secrets.id
+  secret_id = aws_secretsmanager_secret.backend_secrets.id
   secret_string = jsonencode({
-    NODE_ENV = "production"
-    PORT     = "5000"
+    NODE_ENV     = "production"
+    PORT         = "5000"
     DATABASE_URL = "mongodb://placeholder_string"
     JWT_SECRET   = "713300e5c96007c662ea608ee767d3931dd692f1aa9b85bb7ffc56e208156492"
   })
@@ -87,5 +87,5 @@ resource "aws_route_table_association" "zuriapp_pub_1" {
 
 resource "aws_route_table_association" "zuriapp_pub_2" {
   subnet_id      = aws_subnet.zuriapp_public_2.id
-  route_table_id = aws_route_table.zuriapp_public.id
+  route_table_id = aws_route_table.zuriapp_public_rt.id
 }
