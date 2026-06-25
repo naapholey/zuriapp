@@ -119,7 +119,7 @@ resource "aws_iam_role" "ec2_k3s_role" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          Service = "ec2.amazonaws.com" # FIXED: Corrected invalid endpoint scheme
+          Service = "ec2.amazonaws.com" 
         }
       }
     ]
@@ -206,7 +206,7 @@ resource "aws_iam_role" "vpc_flow_log_role" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          Service = "://amazonaws.com"
+           Service = "ec2.amazonaws.com" 
         }
       }
     ]
