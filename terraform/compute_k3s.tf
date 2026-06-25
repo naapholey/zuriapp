@@ -4,12 +4,16 @@ resource "aws_security_group" "zuriapp_k3s_sg" {
   name        = "${var.project_name}-k3s-sg"
   description = "Network policies for k3s cluster control plane"
   vpc_id      = aws_vpc.zuriapp_main.id
+
+  tags = {
+    Name = "${var.project_name}-k3s-sg"
+  }
 }
 
-# Rule
+# Inbound Rules: Restrict Node application runtimes to VPC internal space
 resource "aws_vpc_security_group_ingress_rule" "allow_http" {
   security_group_id = aws_security_group.zuriapp_k3s_sg.id
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = aws_vpc.zuriapp_main.cidr_block # Tighten if using a public Application Load Balancer
   from_port         = 80
   ip_protocol       = "tcp"
   to_port           = 80
@@ -17,24 +21,32 @@ resource "aws_vpc_security_group_ingress_rule" "allow_http" {
 
 resource "aws_vpc_security_group_ingress_rule" "allow_https" {
   security_group_id = aws_security_group.zuriapp_k3s_sg.id
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = aws_vpc.zuriapp_main.cidr_block
   from_port         = 443
   ip_protocol       = "tcp"
   to_port           = 443
 }
 
+# Inbound Rule: Restrict API Server to internal VPC network spaces only
 resource "aws_vpc_security_group_ingress_rule" "allow_kubernetes_api" {
   security_group_id = aws_security_group.zuriapp_k3s_sg.id
-  cidr_ipv4         = "0.0.0.0/0"
+  cidr_ipv4         = aws_vpc.zuriapp_main.cidr_block # Replaces 0.0.0.0/0
   from_port         = 6443
   ip_protocol       = "tcp"
   to_port           = 6443
 }
 
+# Outbound Rule: Explicit IPv4 Egress required since K3s drops tracking without it
+resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv4" {
+  security_group_id = aws_security_group.zuriapp_k3s_sg.id
+  cidr_ipv4         = "0.0.0.0/0"
+  ip_protocol       = "-1"
+}
+
 resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv6" {
   security_group_id = aws_security_group.zuriapp_k3s_sg.id
   cidr_ipv6         = "::/0"
-  ip_protocol       = "-1" # semantically equivalent to all ports
+  ip_protocol       = "-1" 
 }
 
 # IAM instance profile configuration to let k3s read Secrets Manager directly
@@ -48,7 +60,7 @@ resource "aws_iam_role" "ec2_k3s_role" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-          Service = "://amazonaws.com"
+          Service = "ec2.amazonaws.com" # FIXED: Corrected invalid endpoint scheme
         }
       }
     ]
@@ -96,18 +108,26 @@ data "aws_ami" "ubuntu" {
 # Virtual Machine Instance Provisioner
 resource "aws_instance" "k3s_node" {
   ami                  = data.aws_ami.ubuntu.id
-  instance_type        = "t3.micro" # Satisfies Node + Vite runtime memory demands
+  instance_type        = "t3.micro"
   subnet_id            = aws_subnet.zuriapp_public_1.id
-  security_groups      = [aws_security_group.zuriapp_k3s_sg.id]
-  iam_instance_profile = aws_iam_instance_profile.k3s_profile.name
+  vpc_security_group_ids = [aws_security_group.zuriapp_k3s_sg.id]
+  iam_instance_profile   = aws_iam_instance_profile.k3s_profile.name
+
+  metadata_options {
+    http_tokens                 = "required"
+    http_endpoint               = "enabled"
+    http_put_response_hop_limit = 2
+  }
+
+  root_block_device {
+    encrypted = true
+  }
 
   # Automation Engine Bootstrapping script to provision k3s natively
   user_data = <<-EOF
               #!/bin/bash
               # Update packages and download k3s binary installer
-              curl -sfL https://k3s.io | sh -s - --write-kubeconfig-mode 644
-              
-              # Optional verification command 
+              curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
               echo "k3s operational verification completed."
               EOF
 

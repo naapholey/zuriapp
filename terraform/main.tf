@@ -46,7 +46,7 @@ resource "aws_subnet" "zuriapp_public_1" {
   vpc_id                  = aws_vpc.zuriapp_main.id
   cidr_block              = "10.0.1.0/24"
   availability_zone       = "${var.aws_region}a"
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false # Security best practice: avoid auto-public IPs for production workloads
 
   tags = {
     Name = "${var.project_name}-public-1"
@@ -58,7 +58,7 @@ resource "aws_subnet" "zuriapp_public_2" {
   vpc_id                  = aws_vpc.zuriapp_main.id
   cidr_block              = "10.0.2.0/24"
   availability_zone       = "${var.aws_region}b"
-  map_public_ip_on_launch = true
+  map_public_ip_on_launch = false # Security best practice: avoid auto-public IPs for production workloads
 
   tags = {
     Name = "${var.project_name}-public-2"
