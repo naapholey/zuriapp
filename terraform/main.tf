@@ -1,7 +1,26 @@
-# AWS Secrets Manager Container
+# Create a Customer Managed Key (CMK) for cryptographic control
+resource "aws_kms_key" "secrets_key" {
+  description             = "Customer managed key for encrypting backend application secrets"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true # Resolves another common high-severity security finding
+
+  tags = {
+    Name        = "${var.project_name}-secrets-key"
+    Environment = var.environment
+  }
+}
+
+# Add a convenient alias name for management visibility
+resource "aws_kms_alias" "secrets_key_alias" {
+  name          = "alias/${var.project_name}-backend-secrets"
+  target_key_id = aws_kms_key.secrets_key.key_id
+}
+
+# # AWS Secrets Manager Container
 resource "aws_secretsmanager_secret" "backend_secrets" {
   name                    = "${var.environment}/${var.project_name}/backend"
-  recovery_window_in_days = 0 # Forces immediate purge on deletion for active testing
+  recovery_window_in_days = 0 
+  kms_key_id              = aws_kms_key.secrets_key.arn
 
   tags = {
     Environment = var.environment

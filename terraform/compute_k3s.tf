@@ -49,6 +49,16 @@ resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv6" {
   ip_protocol       = "-1" 
 }
 
+# CloudWatch Log Group to store network traffic records
+resource "aws_cloudwatch_log_group" "vpc_flow_log_group" {
+  name              = "/aws/vpc-flow-logs/${var.project_name}-${var.environment}"
+  retention_in_days = 30 # Adjust retention length based on compliance needs
+
+  tags = {
+    Environment = var.environment
+  }
+}
+
 # IAM instance profile configuration to let k3s read Secrets Manager directly
 resource "aws_iam_role" "ec2_k3s_role" {
   name = "zuri-k3s-instance-role"
@@ -133,6 +143,58 @@ resource "aws_instance" "k3s_node" {
 
   tags = {
     Name        = "${var.project_name}-k3s-server"
+    Environment = var.environment
+  }
+}
+
+resource "aws_iam_role" "vpc_flow_log_role" {
+  name = "${var.project_name}-vpc-flow-log-role"
+
+  assume_role_policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = "sts:AssumeRole"
+        Effect = "Allow"
+        Principal = {
+          Service = "://amazonaws.com"
+        }
+      }
+    ]
+  })
+}
+
+# IAM Policy allowing write actions into the CloudWatch log stream
+resource "aws_iam_role_policy" "vpc_flow_log_policy" {
+  name = "${var.project_name}-vpc-flow-log-policy"
+  role = aws_iam_role.vpc_flow_log_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Action = [
+          "logs:CreateLogStream",
+          "logs:PutLogEvents",
+          "logs:DescribeLogGroups",
+          "logs:DescribeLogStreams"
+        ]
+        Effect   = "Allow"
+        Resource = "${aws_cloudwatch_log_group.vpc_flow_log_group.arn}:*"
+      }
+    ]
+  })
+}
+
+# The actual VPC Flow Log delivery tracker mapping to your VPC
+resource "aws_flow_log" "zuriapp_flow_log" {
+  iam_role_arn    = aws_iam_role.vpc_flow_log_role.arn
+  log_destination = aws_cloudwatch_log_group.vpc_flow_log_group.arn
+  traffic_type    = "ALL" # Captures both ACCEPT and REJECT network traffic
+  vpc_id          = aws_vpc.zuriapp_main.id
+
+  tags = {
+    Name        = "${var.project_name}-vpc-flow-logs"
     Environment = var.environment
   }
 }
