@@ -49,15 +49,64 @@ resource "aws_vpc_security_group_egress_rule" "allow_all_traffic_ipv6" {
   ip_protocol       = "-1" 
 }
 
+# Fetch current AWS Account ID and Region dynamically for the Key Policy
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+# Dedicated CMK for CloudWatch Log Group Encryption
+resource "aws_kms_key" "cloudwatch_logs_key" {
+  description             = "KMS Key for CloudWatch VPC Flow Logs"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  # Strict Key Policy allowing Root administration and CloudWatch write operations
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "Enable Root Account Administration"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "Allow CloudWatch Logs Service Delivery"
+        Effect = "Allow"
+        Principal = {
+          Service = "logs.${data.aws_region.current.name}.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt*",
+          "kms:Decrypt*",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:Describe*"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
+  tags = {
+    Name        = "${var.project_name}-cloudwatch-key"
+    Environment = var.environment
+  }
+}
+
 # CloudWatch Log Group to store network traffic records
 resource "aws_cloudwatch_log_group" "vpc_flow_log_group" {
   name              = "/aws/vpc-flow-logs/${var.project_name}-${var.environment}"
-  retention_in_days = 30 # Adjust retention length based on compliance needs
+  retention_in_days = 30
+  kms_key_id        = aws_kms_key.cloudwatch_logs_key.arn
 
   tags = {
     Environment = var.environment
   }
 }
+
 
 # IAM instance profile configuration to let k3s read Secrets Manager directly
 resource "aws_iam_role" "ec2_k3s_role" {
@@ -180,7 +229,10 @@ resource "aws_iam_role_policy" "vpc_flow_log_policy" {
           "logs:DescribeLogStreams"
         ]
         Effect   = "Allow"
-        Resource = "${aws_cloudwatch_log_group.vpc_flow_log_group.arn}:*"
+         Resource = [
+          aws_cloudwatch_log_group.vpc_flow_log_group.arn,
+          #"${aws_cloudwatch_log_group.vpc_flow_log_group.arn}:*"
+        ]
       }
     ]
   })
