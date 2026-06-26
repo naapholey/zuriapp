@@ -59,7 +59,6 @@ resource "aws_kms_key" "cloudwatch_logs_key" {
   deletion_window_in_days = 7
   enable_key_rotation     = true
 
-  # Strict Key Policy allowing Root administration and CloudWatch write operations
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
@@ -94,6 +93,11 @@ resource "aws_kms_key" "cloudwatch_logs_key" {
     Name        = "${var.project_name}-cloudwatch-key"
     Environment = var.environment
   }
+}
+
+import {
+  to = aws_cloudwatch_log_group.vpc_flow_log_group
+  id = "/aws/vpc-flow-logs/${var.project_name}-${var.environment}"
 }
 
 # CloudWatch Log Group to store network traffic records
@@ -222,21 +226,21 @@ resource "aws_iam_role_policy" "vpc_flow_log_policy" {
     Version = "2012-10-17"
     Statement = [
       {
+        Sid    = "VPCFlowLogsToCloudWatch"
+        Effect = "Allow"
         Action = [
           "logs:CreateLogStream",
-          "logs:PutLogEvents",
-          "logs:DescribeLogGroups",
-          "logs:DescribeLogStreams"
+          "logs:PutLogEvents"
         ]
-        Effect   = "Allow"
          Resource = [
           aws_cloudwatch_log_group.vpc_flow_log_group.arn,
-          #"${aws_cloudwatch_log_group.vpc_flow_log_group.arn}:*"
+          "${aws_cloudwatch_log_group.vpc_flow_log_group.arn}:*"
         ]
       }
     ]
   })
 }
+
 
 # The actual VPC Flow Log delivery tracker mapping to your VPC
 resource "aws_flow_log" "zuriapp_flow_log" {
