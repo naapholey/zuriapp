@@ -153,11 +153,6 @@ resource "aws_iam_role_policy" "secrets_policy" {
         Resource = [aws_secretsmanager_secret.backend_secrets.arn]
       },
       {
-        Effect   = "Allow"
-        Action   = ["s3:PutObject"]
-        Resource = ["${aws_s3_bucket.zuriapp_artifacts.arn}/k3s-config"]
-      },
-      {
         Effect = "Allow"
         Action = [
           "kms:Encrypt",
@@ -168,6 +163,23 @@ resource "aws_iam_role_policy" "secrets_policy" {
     ]
   })
 }
+
+resource "aws_iam_role_policy" "k3s_s3_upload_policy" {
+  name = "${var.project_name}-s3-upload-policy"
+  role = aws_iam_role.ec2_k3s_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Effect   = "Allow"
+        Action   = ["s3:PutObject", "s3:PutObjectAcl"]
+        Resource = "${aws_s3_bucket.zuriapp_s3_bucket.arn}/*"
+      }
+    ]
+  })
+}
+
 
 import {
   to = aws_iam_instance_profile.k3s_profile
@@ -180,9 +192,9 @@ resource "aws_iam_instance_profile" "k3s_profile" {
 }
 
 
-resource "aws_s3_bucket" "zuriapp_artifacts" {
+resource "aws_s3_bucket" "zuriapp_s3_bucket" {
   # S3 bucket names must be globally unique across all AWS accounts
-  bucket_prefix = "${var.project_name}-${var.environment}-artifacts-" 
+  bucket_prefix = "${var.project_name}-${var.environment}-artifacts-"
   force_destroy = true # Allows easy cleanup during testing teardowns
 
   tags = {
@@ -191,20 +203,20 @@ resource "aws_s3_bucket" "zuriapp_artifacts" {
   }
 }
 
-resource "aws_s3_bucket_public_access_block" "zuriapp_artifacts_security" {
-  bucket                  = aws_s3_bucket.zuriapp_artifacts.id
+resource "aws_s3_bucket_public_access_block" "zuriapp_s3_bucket_security" {
+  bucket                  = aws_s3_bucket.zuriapp_s3_bucket.id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
   restrict_public_buckets = true
 }
 
-resource "aws_s3_bucket_server_side_encryption_configuration" "zuriapp_artifacts_crypto" {
-  bucket = aws_s3_bucket.zuriapp_artifacts.id
+resource "aws_s3_bucket_server_side_encryption_configuration" "zuriapp_s3_bucket_crypto" {
+  bucket = aws_s3_bucket.zuriapp_s3_bucket.id
 
   rule {
     apply_server_side_encryption_by_default {
-      kms_master_key_id = aws_kms_key.cloudwatch_logs_key.arn 
+      kms_master_key_id = aws_kms_key.cloudwatch_logs_key.arn
       sse_algorithm     = "aws:kms"
     }
   }
@@ -224,6 +236,145 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 }
+
+# Allocate a static Elastic IP for the NAT Gateway
+resource "aws_eip" "k3s_nat_eip" {
+  domain     = "vpc"
+  depends_on = [aws_internet_gateway.zuriapp_igw]
+
+  tags = {
+    Name = "${var.project_name}-nat-eip"
+  }
+}
+
+# Deploy the NAT Gateway into one of your Public Subnets
+resource "aws_nat_gateway" "k3s_nat_gw" {
+  allocation_id = aws_eip.k3s_nat_eip.id
+  subnet_id     = aws_subnet.zuriapp_public_1.id # Must be placed in a public subnet
+
+  tags = {
+    Name = "${var.project_name}-nat-gw"
+  }
+}
+
+# Create a Private Route Table routing all outbound traffic to the NAT Gateway
+resource "aws_route_table" "k3s_private_rt" {
+  vpc_id = aws_vpc.zuriapp_main.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.k3s_nat_gw.id
+  }
+
+  tags = {
+    Name = "${var.project_name}-private-rt"
+  }
+}
+
+# Associate your private subnet where the K3s node lives
+resource "aws_route_table_association" "k3s_private_assoc" {
+  subnet_id      = aws_subnet.zuriapp_private_1.id
+  route_table_id = aws_route_table.k3s_private_rt.id
+}
+
+
+
+
+# Private Subnet 1 (For Application / Worker Nodes)
+resource "aws_subnet" "zuriapp_private_1" {
+  vpc_id            = aws_vpc.zuriapp_main.id
+  cidr_block        = "10.0.11.0/24"
+  availability_zone = "${var.aws_region}a"
+
+  tags = {
+    Name        = "${var.project_name}-private-1"
+    Environment = var.environment
+  }
+}
+
+# Private Subnet 2 (For Application / Worker Nodes)
+resource "aws_subnet" "zuriapp_private_2" {
+  vpc_id            = aws_vpc.zuriapp_main.id
+  cidr_block        = "10.0.12.0/24"
+  availability_zone = "${var.aws_region}b"
+
+  tags = {
+    Name        = "${var.project_name}-private-2"
+    Environment = var.environment
+  }
+}
+
+# Allocate Static IPs for outbound internet routing from Private Subnets
+resource "aws_eip" "zuriapp_nat_1" {
+  domain     = "vpc"
+  depends_on = [aws_internet_gateway.zuriapp_igw]
+
+  tags = {
+    Name = "${var.project_name}-nat-eip-1"
+  }
+}
+
+resource "aws_eip" "zuriapp_nat_2" {
+  domain     = "vpc"
+  depends_on = [aws_internet_gateway.zuriapp_igw]
+
+  tags = {
+    Name = "${var.project_name}-nat-eip-2"
+  }
+}
+
+# Deploy NAT Gateways into Public Subnets for AZ Redundancy
+resource "aws_nat_gateway" "zuriapp_nat_gw_1" {
+  allocation_id = aws_eip.zuriapp_nat_1.id
+  subnet_id     = aws_subnet.zuriapp_public_1.id
+
+  tags = {
+    Name = "${var.project_name}-nat-gw-1"
+  }
+}
+
+resource "aws_nat_gateway" "zuriapp_nat_gw_2" {
+  allocation_id = aws_eip.zuriapp_nat_2.id
+  subnet_id     = aws_subnet.zuriapp_public_2.id
+
+  tags = {
+    Name = "${var.project_name}-nat-gw-2"
+  }
+}
+
+# Private Route Tables mapping traffic to respective NAT Gateways
+resource "aws_route_table" "zuriapp_private_rt_1" {
+  vpc_id = aws_vpc.zuriapp_main.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.zuriapp_nat_gw_1.id
+  }
+
+  tags = {
+    Name = "${var.project_name}-private-rt-1"
+  }
+}
+
+resource "aws_route_table" "zuriapp_private_rt_2" {
+  vpc_id = aws_vpc.zuriapp_main.id
+
+  route {
+    cidr_block     = "0.0.0.0/0"
+    nat_gateway_id = aws_nat_gateway.zuriapp_nat_gw_2.id
+  }
+
+  tags = {
+    Name = "${var.project_name}-private-rt-2"
+  }
+}
+
+
+resource "aws_route_table_association" "zuriapp_priv_2" {
+  subnet_id      = aws_subnet.zuriapp_private_2.id
+  route_table_id = aws_route_table.zuriapp_private_rt_2.id
+}
+
 # Virtual Machine Instance Provisioner
 resource "aws_instance" "k3s_node" {
   ami                  = data.aws_ami.ubuntu.id
@@ -246,6 +397,11 @@ resource "aws_instance" "k3s_node" {
   user_data = <<-EOF
               #!/bin/bash
               # Update packages and download k3s binary installer
+              apt-get update -y
+              apt-get install -y curl unzip
+              curl "https://amazonaws.com" -o "awscliv2.zip"
+              unzip awscliv2.zip && ./aws/install
+              echo "Updating packages and downloading k3s binary installer..."
               curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
               
               # Wait briefly for the cluster configuration to populate completely
@@ -258,7 +414,7 @@ resource "aws_instance" "k3s_node" {
               sed "s/127.0.0.1/$TARGET_IP/g" /etc/rancher/k3s/k3s.yaml > /tmp/k3s-config
 
               # Securely upload the cluster profile directly into your deployment bucket
-              aws s3 cp /tmp/k3s-config s3://${aws_s3_bucket.zuriapp_artifacts.id}/k3s-config --region ${var.aws_region}
+              aws s3 cp /tmp/k3s-config s3://${aws_s3_bucket.zuriapp_s3_bucket.id}/k3s-config --region ${var.aws_region}
             
               echo "k3s operational bootstrapping completed and token exported successfully."
               EOF
