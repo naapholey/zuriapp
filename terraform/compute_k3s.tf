@@ -250,7 +250,7 @@ resource "aws_instance" "k3s_node" {
               sed "s/127.0.0.1/$TARGET_IP/g" /etc/rancher/k3s/k3s.yaml > /tmp/k3s-config
 
               # Securely upload the cluster profile directly into your deployment bucket
-              aws s3 cp /tmp/k3s-config s3://${aws_s3_bucket.zuriapp_artifacts}/k3s-config --region ${var.aws_region}
+              aws s3 cp /tmp/k3s-config s3://${aws_s3_bucket.zuriapp_artifacts.id}/k3s-config --region ${var.aws_region}
             
               echo "k3s operational bootstrapping completed and token exported successfully."
               EOF
