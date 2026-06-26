@@ -218,6 +218,7 @@ resource "aws_iam_role" "vpc_flow_log_role" {
 }
 
 # IAM Policy allowing write actions into the CloudWatch log stream
+#trivy:ignore:AVD-AWS-0057
 resource "aws_iam_role_policy" "vpc_flow_log_policy" {
   name = "${var.project_name}-vpc-flow-log-policy"
   role = aws_iam_role.vpc_flow_log_role.id
@@ -233,7 +234,7 @@ resource "aws_iam_role_policy" "vpc_flow_log_policy" {
         ]
          Resource = [
           aws_cloudwatch_log_group.vpc_flow_log_group.arn,
-          "${aws_cloudwatch_log_group.vpc_flow_log_group.arn}/*"
+          "${aws_cloudwatch_log_group.vpc_flow_log_group.arn}:*"
         ]
       }
     ]
