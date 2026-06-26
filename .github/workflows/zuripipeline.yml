@@ -26,10 +26,13 @@ jobs:
       #     AWS_REGION: us-east-1 # Change to your actual AWS region
 
 
-      - name: Scan IaC for Misconfigurations
-        uses: aquasecurity/tfsec-action@v1.0.0
+      - name: Run Trivy vulnerability scanner in IaC mode
+        uses: aquasecurity/trivy-action@master
         with:
-          working-directory: terraform
+          scan-type: 'config'
+          hide-progress: false
+          format: 'table'
+          exit-code: '1' # Fails the build if security issues are found
 
       - name: Configure AWS Credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
