@@ -115,7 +115,10 @@ resource "aws_cloudwatch_log_group" "vpc_flow_log_group" {
   }
 }
 
-
+import {
+  to = aws_iam_role.ec2_k3s_role
+  id = "zuri-k3s-instance-role"
+}
 # IAM instance profile configuration to let k3s read Secrets Manager directly
 resource "aws_iam_role" "ec2_k3s_role" {
   name = "zuri-k3s-instance-role"
@@ -204,6 +207,10 @@ resource "aws_instance" "k3s_node" {
   }
 }
 
+import {
+  to = aws_iam_role.vpc_flow_log_role
+  id = "${var.project_name}-vpc-flow-log-role"
+}
 resource "aws_iam_role" "vpc_flow_log_role" {
   name = "${var.project_name}-vpc-flow-log-role"
 
