@@ -38,11 +38,6 @@ resource "aws_secretsmanager_secret_version" "backend_defaults" {
   })
 }
 
-import {
-  to = aws_cloudwatch_log_group.vpc_flow_log_group
-  id = "/aws/vpc-flow-logs/zuri-app-dev"
-}
-
 # Create dedicated project VPC
 resource "aws_vpc" "zuriapp_main" {
   cidr_block           = "10.0.0.0/16"

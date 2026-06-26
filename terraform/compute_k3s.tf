@@ -95,6 +95,10 @@ resource "aws_kms_key" "cloudwatch_logs_key" {
   }
 }
 
+import {
+  to = aws_cloudwatch_log_group.vpc_flow_log_group
+  id = "/aws/vpc-flow-logs/${var.project_name}-${var.environment}"
+}
 
 # CloudWatch Log Group to store network traffic records
 resource "aws_cloudwatch_log_group" "vpc_flow_log_group" {

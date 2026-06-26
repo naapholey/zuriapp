@@ -19,6 +19,13 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # - name: Purge conflicting CloudWatch Log Group
+      #   run: |
+      #     aws logs delete-log-group --log-group-name "/aws/vpc-flow-logs/zuri-app-dev" || true
+      #   env:
+      #     AWS_REGION: us-east-1 # Change to your actual AWS region
+
+
       - name: Scan IaC for Misconfigurations
         uses: aquasecurity/tfsec-action@v1.0.0
         with:
