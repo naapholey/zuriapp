@@ -95,10 +95,10 @@ resource "aws_kms_key" "cloudwatch_logs_key" {
   }
 }
 
-import {
+/* import {
   to = aws_cloudwatch_log_group.vpc_flow_log_group
   id = "/aws/vpc-flow-logs/${var.project_name}-${var.environment}"
-}
+} */
 
 # CloudWatch Log Group to store network traffic records
 resource "aws_cloudwatch_log_group" "vpc_flow_log_group" {
@@ -115,10 +115,10 @@ resource "aws_cloudwatch_log_group" "vpc_flow_log_group" {
   }
 }
 
-import {
+/* import {
   to = aws_iam_role.ec2_k3s_role
   id = "zuri-k3s-instance-role"
-}
+} */
 # IAM instance profile configuration to let k3s read Secrets Manager directly
 resource "aws_iam_role" "ec2_k3s_role" {
   name = "zuri-k3s-instance-role"
@@ -181,10 +181,10 @@ resource "aws_iam_role_policy" "k3s_s3_upload_policy" {
 }
 
 
-import {
+/* import {
   to = aws_iam_instance_profile.k3s_profile
   id = "zuri-k3s-instance-profile"
-}
+} */
 
 resource "aws_iam_instance_profile" "k3s_profile" {
   name = "zuri-k3s-instance-profile"
@@ -424,11 +424,11 @@ resource "aws_instance" "k3s_node" {
     Environment = var.environment
   }
 }
-
+/* 
 import {
   to = aws_iam_role.vpc_flow_log_role
   id = "${var.project_name}-vpc-flow-log-role"
-}
+} */
 resource "aws_iam_role" "vpc_flow_log_role" {
   name = "${var.project_name}-vpc-flow-log-role"
 

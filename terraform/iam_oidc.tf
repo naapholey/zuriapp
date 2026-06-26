@@ -33,10 +33,10 @@ data "aws_iam_policy_document" "github_actions_assume_role" {
 }
 
 
-import {
+/* import {
   to = aws_iam_role.github_actions
   id = "github-actions-zuri-role"
-}
+} */
 
 # The IAM Automation deployment executor role
 resource "aws_iam_role" "github_actions" {
