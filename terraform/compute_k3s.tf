@@ -233,7 +233,7 @@ resource "aws_iam_role_policy" "vpc_flow_log_policy" {
         ]
          Resource = [
           aws_cloudwatch_log_group.vpc_flow_log_group.arn,
-          "${aws_cloudwatch_log_group.vpc_flow_log_group.arn}:*"
+          "${aws_cloudwatch_log_group.vpc_flow_log_group.arn}/*"
         ]
       }
     ]
