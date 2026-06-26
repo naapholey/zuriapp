@@ -97,34 +97,63 @@ jobs:
     name: Kubernetes Deployment
     needs: build-and-publish
     runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
 
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@v4
+    env:
+      K3S_SECRET_NAME: ${{ secrets.K3S_SECRET_NAME }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.ARN_TO_ASSUME }}
           role-session-name: GitHub_to_AWS_via_FederatedOIDC
           aws-region: ${{ secrets.AWS_REGION }}
 
-      # Assuming your k3s Kubeconfig is securely backed up/accessible via SSM/S3
-      - name: Fetch Kubeconfig from AWS
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Retrieve kubeconfig
         run: |
-          aws s3 cp s3://your-zuri-terraform-bucket/k3s-config ~/.kube/config
+          set -euxo pipefail
+
+          mkdir -p ~/.kube
+
+          aws secretsmanager get-secret-value \
+          --secret-id "$K3S_SECRET_NAME" \
+          --query SecretString \
+          --output text \
+          > ~/.kube/config
+
           chmod 600 ~/.kube/config
 
-      - name: Update Kubernetes Manifests with New Image Tag
+          aws secretsmanager describe-secret \
+          --secret-id "$K3S_SECRET_NAME"
+
+          test -s ~/.kube/config
+
+      - name: Verify Cluster
+        run: |
+          kubectl version --client
+          kubectl cluster-info
+          kubectl get nodes
+
+      - name: Update Images
         run: |
           cd k8s
-          sed -i "image: ${{ secrets.DOCKER_USERNAME }}\/zuri-frontend:.*/image: ${{ secrets.DOCKER_USERNAME }}\/zuri-frontend:${{ github.sha }}/g" deployment.yml
-          sed -i "image: ${{ secrets.DOCKER_USERNAME }}\/zuri-backend:.*/image: ${{ secrets.DOCKER_USERNAME }}\/zuri-backend:${{ github.sha }}/g" deployment.yml
 
-      - name: Deploy to k3s
-        run: |
-          kubectl apply -f k8s/
+          sed -i \
+          "s|image:.*zuri-frontend:.*|image: ${{ secrets.DOCKER_USERNAME }}/zuri-frontend:${{ github.sha }}|" \
+          deployment.yml
 
-      - name: Verify Rollout Status
+          sed -i \
+          "s|image:.*zuri-backend:.*|image: ${{ secrets.DOCKER_USERNAME }}/zuri-backend:${{ github.sha }}|" \
+          deployment.yml
+
+      - name: Deploy
+        run: kubectl apply -f k8s/
+
+      - name: Wait for rollout
         run: |
-          kubectl rollout status deployment/zuri-frontend-deployment
-          kubectl rollout status deployment/zuri-backend-deployment
+          kubectl rollout status deployment/zuri-frontend-deployment --timeout=5m
+          kubectl rollout status deployment/zuri-backend-deployment --timeout=5m

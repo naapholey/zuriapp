@@ -132,6 +132,17 @@ resource "aws_iam_role" "ec2_k3s_role" {
         Principal = {
           Service = "ec2.amazonaws.com" 
         }
+      },
+      {
+        Effect = "Allow"
+
+        Action = [
+          "secretsmanager:PutSecretValue",
+          "secretsmanager:UpdateSecret",
+          "secretsmanager:DescribeSecret"
+        ]
+
+        Resource = aws_secretsmanager_secret.k3s_kubeconfig.arn
       }
     ]
   })
@@ -236,7 +247,15 @@ data "aws_ami" "ubuntu" {
     values = ["hvm"]
   }
 }
+resource "aws_secretsmanager_secret" "k3s_kubeconfig" {
+  name = "${var.project_name}-k3s-kubeconfig"
 
+  recovery_window_in_days = 0
+
+  tags = {
+    Environment = var.environment
+  }
+}
 # Allocate a static Elastic IP for the NAT Gateway
 resource "aws_eip" "k3s_nat_eip" {
   domain     = "vpc"
@@ -393,30 +412,117 @@ resource "aws_instance" "k3s_node" {
     encrypted = true
   }
 
-  # Automation Engine Bootstrapping script to provision k3s natively
   user_data = <<-EOF
-              #!/bin/bash
-              # Update packages and download k3s binary installer
-              apt-get update -y
-              apt-get install -y curl unzip
-              curl "https://amazonaws.com" -o "awscliv2.zip"
-              unzip awscliv2.zip && ./aws/install
-              echo "Updating packages and downloading k3s binary installer..."
-              curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
-              
-              # Wait briefly for the cluster configuration to populate completely
-              sleep 15
+               #!/bin/bash
+                set -euxo pipefail
 
-              # Fetch the public or private IP of this node (depending on where your runner sits)
-              TARGET_IP=$(curl -s -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169)
+                # Log everything
+                exec > >(tee /var/log/user-data.log | logger -t user-data)
+                exec 2>&1
 
-              # Prepare the kubeconfig file by replacing localhost with the routeable node IP
-              sed "s/127.0.0.1/$TARGET_IP/g" /etc/rancher/k3s/k3s.yaml > /tmp/k3s-config
+                echo "========== Starting K3s Bootstrap =========="
 
-              # Securely upload the cluster profile directly into your deployment bucket
-              aws s3 cp /tmp/k3s-config s3://${aws_s3_bucket.zuriapp_s3_bucket.id}/k3s-config --region ${var.aws_region}
-            
-              echo "k3s operational bootstrapping completed and token exported successfully."
+                #############################################
+                # Update packages
+                #############################################
+
+                apt-get update -y
+                apt-get install -y curl unzip jq
+
+                #############################################
+                # Install AWS CLI v2
+                #############################################
+
+                cd /tmp
+
+                curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" \
+                    -o "awscliv2.zip"
+
+                unzip -q awscliv2.zip
+
+                ./aws/install
+
+                aws --version
+
+                #############################################
+                # Install K3s
+                #############################################
+
+                curl -sfL https://get.k3s.io | sh -s - \
+                    --write-kubeconfig-mode 644
+
+                #############################################
+                # Wait for K3s to become active
+                #############################################
+
+                echo "Waiting for k3s service..."
+
+                until systemctl is-active --quiet k3s
+                do
+                    sleep 5
+                done
+
+                echo "k3s service is running"
+
+                #############################################
+                # Wait for kubeconfig
+                #############################################
+
+                until [ -f /etc/rancher/k3s/k3s.yaml ]
+                do
+                    sleep 5
+                done
+
+                echo "kubeconfig created"
+
+                #############################################
+                # Get IMDSv2 token
+                #############################################
+
+                TOKEN=$(curl -X PUT \
+                "http://169.254.169.254/latest/api/token" \
+                -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+
+                #############################################
+                # Get instance public IP
+                #############################################
+
+                PUBLIC_IP=$(curl -s \
+                -H "X-aws-ec2-metadata-token: $TOKEN" \
+                http://169.254.169.254/latest/meta-data/public-ipv4)
+
+                echo "Detected Public IP: ${PUBLIC_IP}"
+
+                #############################################
+                # Update kubeconfig
+                #############################################
+
+                sed "s/127.0.0.1/${PUBLIC_IP}/g" \
+                /etc/rancher/k3s/k3s.yaml \
+                > /tmp/k3s-config
+
+                #############################################
+                # Show cluster status
+                #############################################
+
+                kubectl get nodes
+
+                echo "========== Bootstrap Complete =========="
+
+                #############################################
+                # Save kubeconfig into Secrets Manager
+                #############################################
+
+                SECRET_NAME="${aws_secretsmanager_secret.k3s_kubeconfig.name}"
+
+                aws secretsmanager put-secret-value \
+                  --secret-id "$SECRET_NAME" \
+                  --secret-string file:///tmp/k3s-config \
+                  --region ${var.aws_region}
+                  
+                aws secretsmanager describe-secret \
+                    --secret-id "$SECRET_NAME"
+                echo "Kubeconfig stored in Secrets Manager."
               EOF
 
   tags = {
@@ -439,7 +545,7 @@ resource "aws_iam_role" "vpc_flow_log_role" {
         Action = "sts:AssumeRole"
         Effect = "Allow"
         Principal = {
-           Service = "ec2.amazonaws.com" 
+          Service = "ec2.amazonaws.com"
         }
       }
     ]
@@ -461,7 +567,7 @@ resource "aws_iam_role_policy" "vpc_flow_log_policy" {
           "logs:CreateLogStream",
           "logs:PutLogEvents"
         ]
-         Resource = [
+        Resource = [
           aws_cloudwatch_log_group.vpc_flow_log_group.arn,
           "${aws_cloudwatch_log_group.vpc_flow_log_group.arn}:*"
         ]
