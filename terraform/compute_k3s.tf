@@ -153,10 +153,10 @@ resource "aws_iam_role_policy" "secrets_policy" {
         Resource = [aws_secretsmanager_secret.backend_secrets.arn]
       },
       {
-        Effect = "Allow"
-        Action = ["s3:PutObject"]
-        Resource = ["arn:aws:s3:::your-zuri-terraform-bucket/k3s-config"]
-      }
+        Effect   = "Allow"
+        Action   = ["s3:PutObject"]
+        Resource = ["${aws_s3_bucket.zuriapp_artifacts.arn}/k3s-config"]
+     }
     ]
   })
 }
@@ -169,6 +169,37 @@ import {
 resource "aws_iam_instance_profile" "k3s_profile" {
   name = "zuri-k3s-instance-profile"
   role = aws_iam_role.ec2_k3s_role.name
+}
+
+
+resource "aws_s3_bucket" "zuriapp_artifacts" {
+  # S3 bucket names must be globally unique across all AWS accounts
+  bucket_prefix = "${var.project_name}-${var.environment}-artifacts-" 
+  force_destroy = true # Allows easy cleanup during testing teardowns
+
+  tags = {
+    Name        = "${var.project_name}-artifacts-bucket"
+    Environment = var.environment
+  }
+}
+
+resource "aws_s3_bucket_public_access_block" "zuriapp_artifacts_security" {
+  bucket                  = aws_s3_bucket.zuriapp_artifacts.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_server_side_encryption_configuration" "zuriapp_artifacts_crypto" {
+  bucket = aws_s3_bucket.zuriapp_artifacts.id
+
+  rule {
+    apply_server_side_encryption_by_default {
+      kms_master_key_id = aws_kms_key.cloudwatch_logs_key.arn 
+      sse_algorithm     = "aws:kms"
+    }
+  }
 }
 
 data "aws_ami" "ubuntu" {
@@ -219,7 +250,7 @@ resource "aws_instance" "k3s_node" {
               sed "s/127.0.0.1/$TARGET_IP/g" /etc/rancher/k3s/k3s.yaml > /tmp/k3s-config
 
               # Securely upload the cluster profile directly into your deployment bucket
-              aws s3 cp /tmp/k3s-config s3://your-zuri-terraform-bucket/k3s-config --region ${var.aws_region}
+              aws s3 cp /tmp/k3s-config s3://${aws_s3_bucket.zuriapp_artifacts.id}/k3s-config --region ${var.aws_region}
             
               echo "k3s operational bootstrapping completed and token exported successfully."
               EOF
