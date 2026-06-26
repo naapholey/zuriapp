@@ -182,7 +182,7 @@ resource "aws_iam_instance_profile" "k3s_profile" {
 
 resource "aws_s3_bucket" "zuriapp_artifacts" {
   # S3 bucket names must be globally unique across all AWS accounts
-  //bucket_prefix = "${var.project_name}-${var.environment}-artifacts-" 
+  bucket_prefix = "${var.project_name}-${var.environment}-artifacts-" 
   force_destroy = true # Allows easy cleanup during testing teardowns
 
   tags = {
