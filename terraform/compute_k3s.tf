@@ -151,6 +151,11 @@ resource "aws_iam_role_policy" "secrets_policy" {
           "secretsmanager:DescribeSecret"
         ]
         Resource = [aws_secretsmanager_secret.backend_secrets.arn]
+      },
+      {
+        Effect = "Allow"
+        Action = ["s3:PutObject"]
+        Resource = ["arn:aws:s3:::your-zuri-terraform-bucket/k3s-config"]
       }
     ]
   })
@@ -203,7 +208,20 @@ resource "aws_instance" "k3s_node" {
               #!/bin/bash
               # Update packages and download k3s binary installer
               curl -sfL https://get.k3s.io | sh -s - --write-kubeconfig-mode 644
-              echo "k3s operational verification completed."
+              
+              # Wait briefly for the cluster configuration to populate completely
+              sleep 15
+
+              # Fetch the public or private IP of this node (depending on where your runner sits)
+              TARGET_IP=$(curl -s -H "X-aws-ec2-metadata-token: $IMDS_TOKEN" http://169.254.169)
+
+              # Prepare the kubeconfig file by replacing localhost with the routeable node IP
+              sed "s/127.0.0.1/$TARGET_IP/g" /etc/rancher/k3s/k3s.yaml > /tmp/k3s-config
+
+              # Securely upload the cluster profile directly into your deployment bucket
+              aws s3 cp /tmp/k3s-config s3://your-zuri-terraform-bucket/k3s-config --region ${var.aws_region}
+            
+              echo "k3s operational bootstrapping completed and token exported successfully."
               EOF
 
   tags = {
