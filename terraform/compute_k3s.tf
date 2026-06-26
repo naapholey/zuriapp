@@ -156,6 +156,11 @@ resource "aws_iam_role_policy" "secrets_policy" {
   })
 }
 
+import {
+  to = aws_iam_instance_profile.k3s_profile
+  id = "zuri-k3s-instance-profile"
+}
+
 resource "aws_iam_instance_profile" "k3s_profile" {
   name = "zuri-k3s-instance-profile"
   role = aws_iam_role.ec2_k3s_role.name
