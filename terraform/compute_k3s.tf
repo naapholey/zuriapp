@@ -156,7 +156,15 @@ resource "aws_iam_role_policy" "secrets_policy" {
         Effect   = "Allow"
         Action   = ["s3:PutObject"]
         Resource = ["${aws_s3_bucket.zuriapp_artifacts.arn}/k3s-config"]
-     }
+      },
+      {
+        Effect = "Allow"
+        Action = [
+          "kms:Encrypt",
+          "kms:GenerateDataKey*"
+        ]
+        Resource = [aws_kms_key.cloudwatch_logs_key.arn]
+      }
     ]
   })
 }
