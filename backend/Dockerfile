@@ -4,7 +4,8 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci
 COPY . .
-
+HEALTHCHECK --interval=5m --timeout=3s \
+CMD nc -z localhost 8080 || exit 1
 # Stage 2: Minimal Production Runner
 FROM node:20-alpine AS runner
 WORKDIR /app
