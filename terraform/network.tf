@@ -57,7 +57,7 @@ resource "aws_iam_role" "flow_logs" {
 
 import {
   to = aws_iam_role_policy.flow_logs
-  id = "zuriapp-dev-flowlogs-policy"
+  id = "zuriapp-dev-flowlogs-role:zuriapp-dev-flowlogs-policy"
 }
 # IAM Policy for Flow Logs
 resource "aws_iam_role_policy" "flow_logs" {
