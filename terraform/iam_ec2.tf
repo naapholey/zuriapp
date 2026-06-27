@@ -30,8 +30,8 @@ data "aws_iam_policy_document" "ec2_assume_role" {
 ##############################################################
 
 import {
-  to = aws_iam_role.ec2_k3s_role.arn
-  id = "ec2_k3s_role"
+  to = aws_iam_role.ec2_k3s_role
+  id = "zuriapp-dev-ec2-role"
 }
 resource "aws_iam_role" "ec2_k3s_role" {
 
