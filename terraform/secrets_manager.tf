@@ -86,6 +86,11 @@ resource "aws_iam_role_policy_attachment" "ec2_secret_policy" {
   policy_arn = aws_iam_policy.k3s_secret_write.arn
 
 }
+
+import {
+  to = aws_iam_policy.github_secret_read
+  id = "arn:aws:iam::870737143368:policy/zuriapp-dev-github-secret-read"
+}
 resource "aws_iam_policy" "github_secret_read" {
 
   name = "${local.name_prefix}-github-secret-read"

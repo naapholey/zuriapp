@@ -50,7 +50,10 @@ resource "aws_iam_role" "ec2_k3s_role" {
 ##############################################################
 # Instance Profile
 ##############################################################
-
+import {
+  to = aws_iam_instance_profile.k3s
+  id = "zuriapp-dev-instance-profile"
+}
 resource "aws_iam_instance_profile" "k3s" {
 
   name = "${local.name_prefix}-instance-profile"
@@ -75,6 +78,10 @@ resource "aws_iam_role_policy_attachment" "cloudwatch" {
 
 }
 
+import {
+  to = aws_iam_policy.ec2_secrets_manager
+  id = "arn:aws:iam::870737143368:policy/zuriapp-dev-secretsmanager"
+}
 resource "aws_iam_policy" "ec2_secrets_manager" {
 
   name = "${local.name_prefix}-secretsmanager"
@@ -122,6 +129,10 @@ resource "aws_iam_role_policy_attachment" "secrets_manager" {
 
 }
 
+import {
+  to = aws_iam_policy.kms
+  id = "arn:aws:iam::870737143368:policy/zuriapp-dev-kms"
+}
 resource "aws_iam_policy" "kms" {
 
   name = "${local.name_prefix}-kms"
@@ -169,6 +180,10 @@ resource "aws_iam_role_policy_attachment" "kms" {
 
 }
 
+import {
+  to = aws_iam_policy.cloudwatch_logs
+  id = "arn:aws:iam::870737143368:policy/zuriapp-dev-logs"
+}
 resource "aws_iam_policy" "cloudwatch_logs" {
 
   name = "${local.name_prefix}-logs"
@@ -213,6 +228,10 @@ resource "aws_iam_role_policy_attachment" "logs" {
 
 }
 
+import {
+  to = aws_iam_policy.ec2_read
+  id = "arn:aws:iam::870737143368:policy/zuriapp-dev-ec2-read"
+}
 resource "aws_iam_policy" "ec2_read" {
 
   name = "${local.name_prefix}-ec2-read"

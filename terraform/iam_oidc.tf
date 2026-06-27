@@ -74,7 +74,10 @@ data "aws_iam_policy_document" "github_assume_role" {
 ##############################################################
 # GitHub Actions IAM Role
 ##############################################################
-
+import {
+  to = aws_iam_role.github_actions
+  id = "arn:aws:iam::870737143368:role/zuriapp-dev-github-actions"
+}
 resource "aws_iam_role" "github_actions" {
 
   name = "${local.name_prefix}-github-actions"
@@ -92,7 +95,10 @@ resource "aws_iam_role" "github_actions" {
 ##############################################################
 # GitHub Deployment Policy
 ##############################################################
-
+import {
+  to = aws_iam_policy.github_deployment
+  id = "arn:aws:iam::870737143368:policy/zuriapp-dev-github-deployment"
+}
 resource "aws_iam_policy" "github_deployment" {
 
   name = "${local.name_prefix}-github-deployment"

@@ -31,7 +31,10 @@ resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
   tags              = local.common_tags
 }
 
-
+import {
+  to = aws_iam_role.flow_logs
+  id = "arn:aws:iam::870737143368:role/zuriapp-dev-flowlogs-role"
+}
 # IAM Role for VPC Flow Logs
 resource "aws_iam_role" "flow_logs" {
 
@@ -52,7 +55,10 @@ resource "aws_iam_role" "flow_logs" {
   tags = local.common_tags
 }
 
-
+import {
+  to = aws_iam_role_policy.flow_logs
+  id = "arn:aws:iam::870737143368:policy/zuriapp-dev-flowlogs-policy"
+}
 # IAM Policy for Flow Logs
 resource "aws_iam_role_policy" "flow_logs" {
   name = "${local.name_prefix}-flowlogs-policy"
