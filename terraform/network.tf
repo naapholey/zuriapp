@@ -33,7 +33,7 @@ resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
 
 import {
   to = aws_iam_role.flow_logs
-  id = "arn:aws:iam::870737143368:role/zuriapp-dev-flowlogs-role"
+  id = "zuriapp-dev-flowlogs-role"
 }
 # IAM Role for VPC Flow Logs
 resource "aws_iam_role" "flow_logs" {

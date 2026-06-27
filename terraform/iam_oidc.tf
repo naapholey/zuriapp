@@ -76,7 +76,7 @@ data "aws_iam_policy_document" "github_assume_role" {
 ##############################################################
 import {
   to = aws_iam_role.github_actions
-  id = "arn:aws:iam::870737143368:role/zuriapp-dev-github-actions"
+  id = "zuriapp-dev-github-actions"
 }
 resource "aws_iam_role" "github_actions" {
 
