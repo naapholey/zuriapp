@@ -45,6 +45,10 @@ resource "aws_secretsmanager_secret_version" "placeholder" {
   }
 }
 
+import {
+  to = aws_iam_policy.k3s_secret_write
+  id = "arn:aws:iam::870737143368:policy/zuriapp-dev-k3s-secret-write"
+}
 resource "aws_iam_policy" "k3s_secret_write" {
 
   name = "${local.name_prefix}-k3s-secret-write"
