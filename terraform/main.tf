@@ -25,7 +25,7 @@ resource "aws_kms_alias" "secrets_key_alias" {
 
 import {
   to = aws_secretsmanager_secret.backend_secrets
-  id = "${var.environment}/${var.project_name}/backend"
+  id = "arn:aws:secretsmanager:us-east-1:870737143368:secret:dev/zuriapp/backend-wkjpV5"
 }
 
 # # AWS Secrets Manager Container

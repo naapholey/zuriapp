@@ -3,7 +3,7 @@
 
 import {
   to = aws_secretsmanager_secret.k3s_kubeconfig
-  id = "zuri-k3s-kubeconfig"
+  id = "arn:aws:secretsmanager:us-east-1:870737143368:secret:zuri-k3s-kubeconfig-gP9xpo"
 }
 resource "aws_secretsmanager_secret" "k3s_kubeconfig" {
 

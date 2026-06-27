@@ -1,6 +1,6 @@
 import {
   to = aws_iam_openid_connect_provider.github
-  id = "https://token.actions.githubusercontent.com"
+  id = "arn:aws:iam::870737143368:oidc-provider/token.actions.githubusercontent.com"
 }
 resource "aws_iam_openid_connect_provider" "github" {
 
