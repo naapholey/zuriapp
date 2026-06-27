@@ -55,10 +55,10 @@ resource "aws_iam_role" "flow_logs" {
   tags = local.common_tags
 }
 
-import {
+/* import {
   to = aws_iam_role_policy.flow_logs
   id = "zuriapp-dev-flowlogs-role:zuriapp-dev-flowlogs-policy"
-}
+} */
 # IAM Policy for Flow Logs
 resource "aws_iam_role_policy" "flow_logs" {
   name = "${local.name_prefix}-flowlogs-policy"
