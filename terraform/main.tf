@@ -10,23 +10,23 @@ resource "aws_kms_key" "secrets_key" {
   }
 }
 
-/* 
+ 
 import {
   to = aws_kms_alias.secrets_key_alias
   id = "alias/${var.project_name}-backend-secrets"
 }
- */
+ 
 # Add a convenient alias name for management visibility
 resource "aws_kms_alias" "secrets_key_alias" {
   name          = "alias/${var.project_name}-backend-secrets"
   target_key_id = aws_kms_key.secrets_key.key_id
 }
 
-/* 
+ 
 import {
   to = aws_secretsmanager_secret.backend_secrets
   id = "${var.environment}/${var.project_name}/backend"
-} */
+} 
 
 # # AWS Secrets Manager Container
 resource "aws_secretsmanager_secret" "backend_secrets" {

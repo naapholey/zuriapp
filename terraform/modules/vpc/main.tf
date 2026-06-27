@@ -42,6 +42,10 @@ resource "aws_subnet" "private" {
   }
 }
 
+import {
+  to = aws_vpc.this
+  id = "${var.project_name}-${var.environment}-vpc"
+}
 resource "aws_eip" "nat" {
   domain = "vpc"
 

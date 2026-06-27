@@ -18,7 +18,10 @@ module "vpc" {
 
 }
 
-
+import {
+  to = aws_cloudwatch_log_group.vpc_flow_logs
+  id = "/aws/vpc-flow-logs/${local.name_prefix}"
+}
 # CloudWatch Log Group for VPC Flow Logs
 resource "aws_cloudwatch_log_group" "vpc_flow_logs" {
 

@@ -99,7 +99,10 @@ resource "aws_kms_key" "infrastructure" {
 ##############################################################
 # Alias
 ##############################################################
-
+import {
+  to = aws_kms_alias.infrastructure
+  id = "alias/${local.name_prefix}"
+}
 resource "aws_kms_alias" "infrastructure" {
 
   name = "alias/${local.name_prefix}"

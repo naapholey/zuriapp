@@ -1,7 +1,10 @@
 
 # K3s Kubeconfig Secret
 
-
+import {
+  to = aws_secretsmanager_secret.k3s_kubeconfig.arn
+  id = "${var.environment}/${var.project_name}/k3s-kubeconfig"
+}
 resource "aws_secretsmanager_secret" "k3s_kubeconfig" {
 
   name = var.kubeconfig_secret_name

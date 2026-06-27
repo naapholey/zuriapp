@@ -29,6 +29,10 @@ data "aws_iam_policy_document" "ec2_assume_role" {
 # EC2 IAM Role
 ##############################################################
 
+import {
+  to = aws_iam_role.ec2_k3s_role.arn
+  id = "ec2_k3s_role"
+}
 resource "aws_iam_role" "ec2_k3s_role" {
 
   name = "${local.name_prefix}-ec2-role"
