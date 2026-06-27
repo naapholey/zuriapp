@@ -27,7 +27,7 @@ jobs:
 
 
       - name: Run Trivy vulnerability scanner in IaC mode
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           scan-type: 'config'
           hide-progress: false
@@ -44,11 +44,31 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
 
-      - name: Terraform Init & Apply
+      - name: Terraform Init
         run: |
           cd terraform
           terraform init
-          terraform apply -auto-approve
+
+      - name: Terraform Format Check
+        run: |
+          cd terraform
+          terraform fmt -check -recursive
+
+      - name: Terraform Validate
+        run: |
+          cd terraform
+          terraform validate
+
+      - name: Terraform Plan
+        run: |
+          cd terraform
+          terraform plan -out=tfplan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd terraform
+          terraform apply -auto-approve tfplan
 
   # -------------------------------------------------------------
   # STAGE 2: Build, Scan, and Publish Containers (Req 1 & 7)
@@ -74,9 +94,10 @@ jobs:
         run: |
           docker build -t ${{ secrets.DOCKER_USERNAME }}/zuri-${{ matrix.component }}:${{ github.sha }} ./${{ matrix.component }}
           docker tag ${{ secrets.DOCKER_USERNAME }}/zuri-${{ matrix.component }}:${{ github.sha }} ${{ secrets.DOCKER_USERNAME }}/zuri-${{ matrix.component }}:latest
-
+          docker image ls
+          
       - name: Scan Container Image for Vulnerabilities
-        uses: aquasecurity/trivy-action@master
+        uses: aquasecurity/trivy-action@0.28.0
         with:
           image-ref: ${{ secrets.DOCKER_USERNAME }}/zuri-${{ matrix.component }}:${{ github.sha }}
           format: 'table'
@@ -112,6 +133,10 @@ jobs:
 
       - name: Install kubectl
         uses: azure/setup-kubectl@v4
+
+      - name: Wait for K3s bootstrap
+        run: |
+          sleep 90
 
       - name: Retrieve kubeconfig
         run: |
@@ -150,10 +175,25 @@ jobs:
           "s|image:.*zuri-backend:.*|image: ${{ secrets.DOCKER_USERNAME }}/zuri-backend:${{ github.sha }}|" \
           deployment.yml
 
+      - name: Wait for  Update Images
+        run: |
+          sleep 5
+
       - name: Deploy
-        run: kubectl apply -f k8s/
+        run: kubectl apply --dry-run=client -f k8s/
 
       - name: Wait for rollout
         run: |
           kubectl rollout status deployment/zuri-frontend-deployment --timeout=5m
           kubectl rollout status deployment/zuri-backend-deployment --timeout=5m
+
+      - name: Show Kubernetes Context
+        run: |
+          kubectl config current-context
+          kubectl get ns
+
+      - name: Rollback on failure
+        if: failure()
+        run: |
+          kubectl rollout undo deployment/zuri-frontend-deployment
+          kubectl rollout undo deployment/zuri-backend-deployment

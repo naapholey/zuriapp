@@ -1,0 +1,85 @@
+# Git
+.git
+.gitignore
+
+# GitHub
+.github
+
+# Node dependencies
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Build output
+dist
+build
+coverage
+
+# Environment files
+.env
+.env.*
+!.env.example
+
+# Terraform
+terraform/
+**/.terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# Kubernetes
+k8s/
+
+# IDEs
+.vscode
+.idea
+*.swp
+*.swo
+
+# macOS
+.DS_Store
+
+# Logs
+logs
+*.log
+
+# Python
+__pycache__
+*.pyc
+*.pyo
+
+# Docker
+Dockerfile*
+docker-compose.yml
+docker-compose.yaml
+.dockerignore
+
+# Documentation
+README.md
+docs/
+
+# Tests
+test
+tests
+__tests__
+
+# Temporary files
+tmp
+temp
+.cache
+
+# SSH Keys
+*.pem
+*.key
+id_rsa
+id_rsa.pub
+
+# AWS Credentials
+.aws
+
+# Misc
+*.bak
+*.old

@@ -1,6 +1,12 @@
-vpc_name             = "zuriapp-vpc"
-vpc_cidr             = "10.0.0.0/16"
-public_subnet_cidrs  = ["10.0.1.0/24", "10.0.2.0/24"]
-private_subnet_cidrs = ["10.0.10.0/24", "10.0.20.0/24"]
-availability_zone    = ["us-east-1a", "us-east-1b"]
-environment          = "dev"
+project_name       = "zuriapp"
+environment        = "dev"
+aws_region         = "us-east-1"
+instance_type      = "t3.medium"
+ssh_key_name       = "zuriapp-key"
+github_repository  = "naapholey/zuriapp"
+dockerhub_username = "naapholey"
+allowed_ssh_cidr   = "154.161.23.114/32"
+additional_tags = {
+  CostCenter = "Engineering"
+  Owner      = "DevOps"
+}

@@ -1,51 +1,221 @@
-# Fetch GitHub's OIDC OpenSSL Certificate Thumbprint
-data "aws_iam_openid_connect_provider" "github" {
+resource "aws_iam_openid_connect_provider" "github" {
+
   url = "https://token.actions.githubusercontent.com"
+
+  client_id_list = [
+    "sts.amazonaws.com"
+  ]
+
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1"
+  ]
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.name_prefix}-github-oidc"
+    }
+  )
 }
 
-# OIDC Trust Policy Configuration
-data "aws_iam_policy_document" "github_actions_assume_role" {
+##############################################################
+# GitHub OIDC Trust Policy
+##############################################################
+
+data "aws_iam_policy_document" "github_assume_role" {
+
   statement {
-    actions = ["sts:AssumeRoleWithWebIdentity"]
-    effect  = "Allow"
 
-    # FIX: Replaced invalid "id_token_creators" block with standard "principals"
+    sid = "GitHubOIDC"
+
+    effect = "Allow"
+
+    actions = [
+      "sts:AssumeRoleWithWebIdentity"
+    ]
+
     principals {
-      type        = "Federated"
-      identifiers = [data.aws_iam_openid_connect_provider.github.arn]
+
+      type = "Federated"
+
+      identifiers = [
+        aws_iam_openid_connect_provider.github.arn
+      ]
     }
 
-    # FIX: Combined audience verification into standard IAM conditions 
-    # and fixed the structural syntax for variable names
     condition {
-      test     = "StringEquals"
+
+      test = "StringEquals"
+
       variable = "token.actions.githubusercontent.com:aud"
-      values   = ["sts.amazonaws.com"] # The official standard audience for AWS OIDC
+
+      values = [
+        "sts.amazonaws.com"
+      ]
     }
 
-    # Strict scoping down to your specific GitHub workspace repository matching pattern
     condition {
-      test     = "StringEquals"
+
+      test = "StringLike"
+
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:naapholey/zuriapp:ref:refs/heads/main"]
+
+      values = [
+        "repo:${var.github_repository}:ref:refs/heads/${var.github_branch}"
+      ]
     }
   }
 }
 
+##############################################################
+# GitHub Actions IAM Role
+##############################################################
 
-/* import {
-  to = aws_iam_role.github_actions
-  id = "github-actions-zuri-role"
-} */
-
-# The IAM Automation deployment executor role
 resource "aws_iam_role" "github_actions" {
-  name               = "github-actions-zuri-role"
-  assume_role_policy = data.aws_iam_policy_document.github_actions_assume_role.json
+
+  name = "${local.name_prefix}-github-actions"
+
+  assume_role_policy = data.aws_iam_policy_document.github_assume_role.json
+
+  tags = merge(
+    local.common_tags,
+    {
+      Name = "${local.name_prefix}-github-actions"
+    }
+  )
 }
 
-# Basic inline policy granting GitHub workflow capabilities
-resource "aws_iam_role_policy_attachment" "admin_access" {
-  role       = aws_iam_role.github_actions.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+##############################################################
+# GitHub Deployment Policy
+##############################################################
+
+resource "aws_iam_policy" "github_deployment" {
+
+  name = "${local.name_prefix}-github-deployment"
+
+  description = "Permissions used by GitHub Actions"
+
+  policy = jsonencode({
+
+    Version = "2012-10-17"
+
+    Statement = [
+
+      ########################################################
+      # EC2
+      ########################################################
+
+      {
+        Effect = "Allow"
+
+        Action = [
+
+          "ec2:*"
+
+        ]
+
+        Resource = "*"
+      },
+
+      ########################################################
+      # VPC
+      ########################################################
+
+      {
+        Effect = "Allow"
+
+        Action = [
+
+          "ec2:Describe*"
+
+        ]
+
+        Resource = "*"
+      },
+
+      ########################################################
+      # IAM
+      ########################################################
+
+      {
+        Effect = "Allow"
+
+        Action = [
+
+          "iam:GetRole",
+          "iam:PassRole",
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:CreateInstanceProfile",
+          "iam:DeleteInstanceProfile",
+          "iam:AddRoleToInstanceProfile",
+          "iam:RemoveRoleFromInstanceProfile"
+
+        ]
+
+        Resource = "*"
+      },
+
+      ########################################################
+      # CloudWatch
+      ########################################################
+
+      {
+        Effect = "Allow"
+
+        Action = [
+
+          "logs:*"
+
+        ]
+
+        Resource = "*"
+      },
+
+      ########################################################
+      # KMS
+      ########################################################
+
+      {
+        Effect = "Allow"
+
+        Action = [
+
+          "kms:DescribeKey"
+
+        ]
+
+        Resource = aws_kms_key.infrastructure.arn
+      },
+
+      ########################################################
+      # Secrets Manager
+      ########################################################
+
+      {
+        Effect = "Allow"
+
+        Action = [
+
+          "secretsmanager:GetSecretValue",
+          "secretsmanager:DescribeSecret"
+
+        ]
+
+        Resource = aws_secretsmanager_secret.k3s_kubeconfig.arn
+      }
+
+    ]
+
+  })
+}
+
+resource "aws_iam_role_policy_attachment" "github_deployment" {
+
+  role = aws_iam_role.github_actions.name
+
+  policy_arn = aws_iam_policy.github_deployment.arn
+
 }

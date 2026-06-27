@@ -31,7 +31,7 @@ import {
 # # AWS Secrets Manager Container
 resource "aws_secretsmanager_secret" "backend_secrets" {
   name                    = "${var.environment}/${var.project_name}/backend"
-  recovery_window_in_days = 0 
+  recovery_window_in_days = 0
   kms_key_id              = aws_kms_key.secrets_key.arn
 
   tags = {
